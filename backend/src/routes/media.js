@@ -1,7 +1,11 @@
 import { Router } from 'express';
+import { readFile, access } from 'fs/promises';
+import path from 'path';
 import axios from 'axios';
 import { authMiddleware } from '../middleware/auth.js';
 import pool from '../db.js';
+
+const uploadsDir = path.join(process.cwd(), 'uploads');
 
 const router = Router();
 
@@ -26,6 +30,20 @@ router.get('/:messageId', authMiddleware, async (req, res) => {
       res.set('Content-Type', cached.contentType);
       res.set('Cache-Control', 'private, max-age=1800');
       return res.send(cached.data);
+    }
+
+    // Check for locally saved file (sent media by agents)
+    const localPath = path.join(uploadsDir, messageId);
+    try {
+      await access(localPath);
+      const data = await readFile(localPath);
+      const contentType = msg.media_mime_type || 'application/octet-stream';
+      mediaCache.set(messageId, { data, contentType, time: Date.now() });
+      res.set('Content-Type', contentType);
+      res.set('Cache-Control', 'private, max-age=1800');
+      return res.send(data);
+    } catch {
+      // No local file, continue to Meta API
     }
 
     // If media_url is a Meta media ID (numeric), get the actual URL first

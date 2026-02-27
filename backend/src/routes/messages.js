@@ -1,8 +1,13 @@
 import { Router } from 'express';
+import { writeFile, mkdir } from 'fs/promises';
+import path from 'path';
 import pool from '../db.js';
 import { authMiddleware } from '../middleware/auth.js';
 import multer from 'multer';
 import { sendTextMessage, sendTemplateMessage, sendMediaMessage, uploadMediaToMeta } from '../meta.js';
+
+const uploadsDir = path.join(process.cwd(), 'uploads');
+mkdir(uploadsDir, { recursive: true }).catch(() => {});
 
 const router = Router();
 router.use(authMiddleware);
@@ -228,6 +233,9 @@ router.post('/:conversationId/media', upload.single('file'), async (req, res) =>
        RETURNING *`,
       [conversationId, req.agent.id, caption || '', mediaType, mediaId, mime, metaMessageId]
     );
+
+    // Save file locally for display (Meta upload IDs are not retrievable)
+    await writeFile(path.join(uploadsDir, String(msgRes.rows[0].id)), file.buffer);
 
     // Update conversation
     await pool.query(

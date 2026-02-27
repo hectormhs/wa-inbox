@@ -22,6 +22,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - uploads:/app/uploads
     environment:
       DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-wa_inbox_2024}@db:5432/wa_inbox
       PORT: 3000
@@ -42,3 +44,4 @@ services:
 
 volumes:
   pgdata:
+  uploads:
