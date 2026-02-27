@@ -19,6 +19,7 @@ services:
   backend:
     build: ./backend
     restart: always
+    hostname: wa-inbox-backend
     depends_on:
       db:
         condition: service_healthy
