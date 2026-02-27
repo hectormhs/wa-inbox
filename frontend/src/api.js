@@ -44,6 +44,26 @@ export const api = {
   sendNewTemplate: (phone, templateName, language, components, contactName) =>
     request('/api/messages/new/template', { method: 'POST', body: JSON.stringify({ phone, template_name: templateName, language, components, contact_name: contactName }) }),
   addNote: (convId, content) => request(`/api/messages/${convId}/note`, { method: 'POST', body: JSON.stringify({ content }) }),
+  sendMedia: async (convId, file, caption) => {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append('file', file);
+    if (caption) formData.append('caption', caption);
+    const res = await fetch(`${BASE}/api/messages/${convId}/media`, {
+      method: 'POST',
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: formData,
+    });
+    if (res.status === 401) {
+      localStorage.removeItem('wa_token');
+      localStorage.removeItem('wa_agent');
+      window.location.reload();
+      throw new Error('Sesión expirada');
+    }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error');
+    return data;
+  },
 
   getAgents: () => request('/api/agents'),
 

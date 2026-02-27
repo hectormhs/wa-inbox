@@ -1,10 +1,16 @@
 import { Router } from 'express';
 import pool from '../db.js';
 import { authMiddleware } from '../middleware/auth.js';
-import { sendTextMessage, sendTemplateMessage, sendMediaMessage } from '../meta.js';
+import multer from 'multer';
+import { sendTextMessage, sendTemplateMessage, sendMediaMessage, uploadMediaToMeta } from '../meta.js';
 
 const router = Router();
 router.use(authMiddleware);
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 16 * 1024 * 1024 },
+});
 
 // Get messages for a conversation
 router.get('/:conversationId', async (req, res) => {
@@ -176,6 +182,68 @@ router.post('/:conversationId/note', async (req, res) => {
     res.json(message);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Send media message
+router.post('/:conversationId/media', upload.single('file'), async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const { caption } = req.body;
+    const file = req.file;
+
+    if (!file) return res.status(400).json({ error: 'No se adjuntó ningún archivo' });
+
+    // Get the contact phone
+    const conv = await pool.query(
+      'SELECT ct.phone FROM conversations c JOIN contacts ct ON c.contact_id = ct.id WHERE c.id = $1',
+      [conversationId]
+    );
+    if (!conv.rows[0]) return res.status(404).json({ error: 'Conversación no encontrada' });
+
+    const phone = conv.rows[0].phone;
+
+    // Determine media type from mime
+    const mime = file.mimetype;
+    let mediaType = 'document';
+    if (mime.startsWith('image/')) mediaType = 'image';
+    else if (mime.startsWith('video/')) mediaType = 'video';
+    else if (mime.startsWith('audio/')) mediaType = 'audio';
+
+    // Upload to Meta
+    const mediaId = await uploadMediaToMeta(file.buffer, mime, file.originalname);
+
+    // Send via Meta API
+    const metaRes = await sendMediaMessage(phone, mediaType, mediaId, caption, file.originalname);
+    const metaMessageId = metaRes.messages?.[0]?.id;
+
+    // Preview text for conversation list
+    const previewMap = { image: 'Imagen', video: 'Video', audio: 'Audio', document: 'Documento' };
+    const preview = caption || previewMap[mediaType] || 'Archivo';
+
+    // Save to DB
+    const msgRes = await pool.query(
+      `INSERT INTO messages (conversation_id, sender_type, sender_id, content, message_type, media_url, media_mime_type, meta_message_id, status)
+       VALUES ($1, 'agent', $2, $3, $4, $5, $6, $7, 'sent')
+       RETURNING *`,
+      [conversationId, req.agent.id, caption || '', mediaType, mediaId, mime, metaMessageId]
+    );
+
+    // Update conversation
+    await pool.query(
+      'UPDATE conversations SET last_message_at = NOW(), last_message_preview = $1, unread_count = 0 WHERE id = $2',
+      [preview.substring(0, 100), conversationId]
+    );
+
+    const message = { ...msgRes.rows[0], agent_name: req.agent.name || 'Agent', agent_color: req.agent.color };
+
+    const io = req.app.get('io');
+    if (io) io.emit('new_message', { message, conversation_id: parseInt(conversationId) });
+
+    res.json(message);
+  } catch (err) {
+    console.error('Send media error:', err.response?.data || err.message);
+    res.status(500).json({ error: err.response?.data?.error?.message || err.message });
   }
 });
 

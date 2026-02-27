@@ -42,10 +42,30 @@ export async function sendTemplateMessage(to, templateName, language = 'es', com
   return res.data;
 }
 
-export async function sendMediaMessage(to, type, mediaUrl, caption) {
+export async function uploadMediaToMeta(fileBuffer, mimeType, filename) {
   const phoneId = process.env.META_PHONE_NUMBER_ID;
-  const mediaPayload = { link: mediaUrl };
-  if (caption) mediaPayload.caption = caption;
+  const formData = new FormData();
+  formData.append('file', new Blob([fileBuffer], { type: mimeType }), filename);
+  formData.append('type', mimeType);
+  formData.append('messaging_product', 'whatsapp');
+
+  const res = await fetch(`${META_API}/${phoneId}/media`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.META_ACCESS_TOKEN}`,
+    },
+    body: formData,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || 'Media upload failed');
+  return data.id;
+}
+
+export async function sendMediaMessage(to, type, mediaId, caption, filename) {
+  const phoneId = process.env.META_PHONE_NUMBER_ID;
+  const mediaPayload = { id: mediaId };
+  if (caption && type !== 'audio') mediaPayload.caption = caption;
+  if (type === 'document' && filename) mediaPayload.filename = filename;
 
   const res = await axios.post(
     `${META_API}/${phoneId}/messages`,

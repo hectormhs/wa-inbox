@@ -31,15 +31,25 @@ const statusColor = {
   failed: 'text-red-400',
 };
 
-export default function ChatWindow({ conversation, messages, agents, onSendMessage, onSendNote, onAssign, onSetStatus, onSendTemplate, currentAgent }) {
+function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+export default function ChatWindow({ conversation, messages, agents, onSendMessage, onSendNote, onSendMedia, onAssign, onSetStatus, onSendTemplate, currentAgent }) {
   const [text, setText] = useState('');
   const [isNote, setIsNote] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [syncing, setSyncing] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [filePreview, setFilePreview] = useState(null);
+  const [sendingMedia, setSendingMedia] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -49,8 +59,38 @@ export default function ChatWindow({ conversation, messages, agents, onSendMessa
     inputRef.current?.focus();
   }, [conversation?.id, isNote]);
 
-  const handleSubmit = (e) => {
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSelectedFile(file);
+    if (filePreview) URL.revokeObjectURL(filePreview);
+    if (file.type.startsWith('image/')) {
+      setFilePreview(URL.createObjectURL(file));
+    } else {
+      setFilePreview(null);
+    }
+    e.target.value = '';
+  };
+
+  const handleCancelFile = () => {
+    if (filePreview) URL.revokeObjectURL(filePreview);
+    setSelectedFile(null);
+    setFilePreview(null);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (selectedFile) {
+      setSendingMedia(true);
+      try {
+        await onSendMedia(selectedFile, text.trim());
+      } finally {
+        setSendingMedia(false);
+      }
+      handleCancelFile();
+      setText('');
+      return;
+    }
     if (!text.trim()) return;
     if (isNote) {
       onSendNote(text.trim());
@@ -174,26 +214,79 @@ export default function ChatWindow({ conversation, messages, agents, onSendMessa
           {/* Note toggle */}
           <div className="flex items-center gap-2 mb-2">
             <button
-              onClick={() => setIsNote(false)}
+              onClick={() => { setIsNote(false); handleCancelFile(); }}
               className={`text-xs px-3 py-1 rounded-full transition ${!isNote ? 'bg-wa-green text-white' : 'bg-wa-input text-wa-muted hover:text-white'}`}
             >
-              💬 Mensaje
+              Mensaje
             </button>
             <button
-              onClick={() => setIsNote(true)}
+              onClick={() => { setIsNote(true); handleCancelFile(); }}
               className={`text-xs px-3 py-1 rounded-full transition ${isNote ? 'bg-amber-500 text-white' : 'bg-wa-input text-wa-muted hover:text-white'}`}
             >
-              📝 Nota
+              Nota
             </button>
           </div>
 
+          {/* File preview */}
+          {selectedFile && (
+            <div className="mb-2 p-3 bg-wa-panel rounded-xl border border-white/5">
+              <div className="flex items-center gap-3">
+                {filePreview ? (
+                  <img src={filePreview} alt="" className="w-16 h-16 object-cover rounded-lg" />
+                ) : (
+                  <div className="w-12 h-12 bg-wa-input rounded-lg flex items-center justify-center text-wa-muted shrink-0">
+                    {selectedFile.type.startsWith('video/') ? (
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="4" width="15" height="16" rx="2" /><path d="M17 8l5-3v14l-5-3V8z" /></svg>
+                    ) : selectedFile.type.startsWith('audio/') ? (
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></svg>
+                    ) : (
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" /></svg>
+                    )}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="text-wa-light text-sm truncate">{selectedFile.name}</div>
+                  <div className="text-wa-muted text-xs">{formatFileSize(selectedFile.size)}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCancelFile}
+                  className="text-wa-muted hover:text-white p-1 shrink-0"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
+                </button>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="flex items-end gap-2">
+            {/* Attach button (hidden in note mode) */}
+            {!isNote && (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={sendingMedia}
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-wa-muted hover:text-white hover:bg-wa-input transition shrink-0 disabled:opacity-30"
+                title="Adjuntar archivo"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
+                </svg>
+              </button>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={handleFileSelect}
+              accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+            />
             <textarea
               ref={inputRef}
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={isNote ? 'Escribe una nota interna...' : 'Escribe un mensaje...'}
+              placeholder={selectedFile ? 'Descripcion (opcional)...' : isNote ? 'Escribe una nota interna...' : 'Escribe un mensaje...'}
               rows={1}
               className={`flex-1 px-4 py-2.5 text-sm text-white rounded-xl focus:outline-none resize-none ${
                 isNote ? 'bg-amber-500/10 border border-amber-500/30 placeholder:text-amber-500/50' : 'bg-wa-input placeholder:text-wa-muted'
@@ -206,16 +299,22 @@ export default function ChatWindow({ conversation, messages, agents, onSendMessa
             />
             <button
               type="submit"
-              disabled={!text.trim()}
+              disabled={sendingMedia || (!text.trim() && !selectedFile)}
               className={`w-10 h-10 rounded-xl flex items-center justify-center transition shrink-0 ${
                 isNote
                   ? 'bg-amber-500 hover:bg-amber-600 disabled:bg-amber-500/30'
                   : 'bg-wa-green hover:bg-wa-green/80 disabled:bg-wa-green/30'
               }`}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-              </svg>
+              {sendingMedia ? (
+                <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                </svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                </svg>
+              )}
             </button>
           </form>
         </div>

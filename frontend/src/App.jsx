@@ -121,6 +121,16 @@ export default function App() {
     }
   };
 
+  const handleSendMedia = async (file, caption) => {
+    try {
+      await api.sendMedia(selectedConvId, file, caption);
+      const msgs = await api.getMessages(selectedConvId);
+      setMessages(msgs);
+    } catch (err) {
+      alert('Error enviando archivo: ' + err.message);
+    }
+  };
+
   const handleSendTemplate = async (templateName, language) => {
     try {
       await api.sendTemplate(selectedConvId, templateName, language);
@@ -181,6 +191,7 @@ export default function App() {
             currentAgent={agent}
             onSendMessage={handleSendMessage}
             onSendNote={handleSendNote}
+            onSendMedia={handleSendMedia}
             onSendTemplate={handleSendTemplate}
             onAssign={handleAssign}
             onSetStatus={handleSetStatus}
