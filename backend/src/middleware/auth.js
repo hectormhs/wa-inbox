@@ -8,9 +8,8 @@ export function generateToken(agent) {
 
 export function authMiddleware(req, res, next) {
   const header = req.headers.authorization;
-  if (!header) return res.status(401).json({ error: 'Token required' });
-
-  const token = header.replace('Bearer ', '');
+  const token = header ? header.replace('Bearer ', '') : req.query.token;
+  if (!token) return res.status(401).json({ error: 'Token required' });
   try {
     req.agent = jwt.verify(token, SECRET);
     next();

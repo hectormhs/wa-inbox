@@ -14,7 +14,8 @@ export default function MessageBubble({ msg }) {
   const [showFullImg, setShowFullImg] = useState(false);
 
   const isOutgoing = msg.sender_type === 'agent' || msg.sender_type === 'system';
-  const mediaUrl = msg.media_url ? `/api/media/${msg.id}` : null;
+  const token = localStorage.getItem('wa_token');
+  const mediaUrl = msg.media_url ? `/api/media/${msg.id}?token=${token}` : null;
 
   const bubbleClass = msg.is_note
     ? 'bg-amber-500/10 border border-amber-500/20 note-stripe'
