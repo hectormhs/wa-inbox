@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../api.js';
+import MessageBubble from './MessageBubble.jsx';
 
 function formatTime(dateStr) {
   if (!dateStr) return '';
@@ -162,40 +163,7 @@ export default function ChatWindow({ conversation, messages, agents, onSendMessa
                   <span className="bg-wa-panel text-wa-muted text-[11px] px-3 py-1 rounded-lg">{msg.dateLabel}</span>
                 </div>
               )}
-              <div className={`flex mb-1.5 message-enter ${msg.sender_type === 'agent' || msg.sender_type === 'system' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[65%] rounded-lg px-3 py-1.5 ${
-                  msg.is_note
-                    ? 'bg-amber-500/10 border border-amber-500/20 note-stripe'
-                    : msg.sender_type === 'contact'
-                    ? 'bg-wa-panel'
-                    : 'bg-wa-bubble'
-                }`}>
-                  {/* Agent name for outgoing */}
-                  {msg.sender_type === 'agent' && msg.agent_name && (
-                    <div className="text-[11px] font-medium mb-0.5" style={{ color: msg.agent_color || '#25D366' }}>
-                      {msg.is_note && '📝 '}{msg.agent_name}
-                    </div>
-                  )}
-                  {msg.is_note && !msg.agent_name && (
-                    <div className="text-[11px] font-medium text-amber-400 mb-0.5">📝 Nota interna</div>
-                  )}
-
-                  {/* Message content */}
-                  <div className="text-[13.5px] text-wa-light leading-relaxed whitespace-pre-wrap break-words">
-                    {msg.content}
-                  </div>
-
-                  {/* Time and status */}
-                  <div className="flex items-center justify-end gap-1 mt-0.5">
-                    <span className="text-[10px] text-wa-muted">{formatTime(msg.created_at)}</span>
-                    {msg.sender_type === 'agent' && !msg.is_note && (
-                      <span className={`text-[10px] ${statusColor[msg.status] || 'text-wa-muted'}`}>
-                        {statusIcon[msg.status] || ''}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
+              <MessageBubble msg={msg} />
             </div>
           ))}
           <div ref={messagesEndRef} />

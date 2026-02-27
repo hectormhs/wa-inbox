@@ -108,8 +108,6 @@ export default function App() {
   const handleSendMessage = async (content) => {
     try {
       await api.sendMessage(selectedConvId, content);
-      const msgs = await api.getMessages(selectedConvId);
-      setMessages(msgs);
     } catch (err) {
       alert('Error enviando: ' + err.message);
     }
@@ -118,8 +116,6 @@ export default function App() {
   const handleSendNote = async (content) => {
     try {
       await api.addNote(selectedConvId, content);
-      const msgs = await api.getMessages(selectedConvId);
-      setMessages(msgs);
     } catch (err) {
       alert('Error: ' + err.message);
     }

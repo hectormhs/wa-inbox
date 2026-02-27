@@ -14,6 +14,7 @@ import messageRoutes from './routes/messages.js';
 import agentRoutes from './routes/agents.js';
 import templateRoutes from './routes/templates.js';
 import settingsRoutes, { initSettingsTable, loadSettingsIntoEnv } from './routes/settings.js';
+import mediaRoutes from './routes/media.js';
 
 const app = express();
 const server = createServer(app);
@@ -38,6 +39,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/agents', agentRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/media', mediaRoutes);
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));

@@ -96,30 +96,36 @@ async function handleIncomingMessage(message, contactInfo) {
     case 'image':
       messageType = 'image';
       content = message.image?.caption || '';
-      mediaUrl = message.image?.id ? await getMediaUrlSafe(message.image.id) : null;
+      mediaUrl = message.image?.id || null;
       mediaMime = message.image?.mime_type;
       break;
     case 'document':
       messageType = 'document';
       content = message.document?.caption || message.document?.filename || 'Documento';
-      mediaUrl = message.document?.id ? await getMediaUrlSafe(message.document.id) : null;
+      mediaUrl = message.document?.id || null;
       mediaMime = message.document?.mime_type;
       break;
     case 'audio':
       messageType = 'audio';
-      content = '🎵 Audio';
-      mediaUrl = message.audio?.id ? await getMediaUrlSafe(message.audio.id) : null;
+      content = 'Audio';
+      mediaUrl = message.audio?.id || null;
       mediaMime = message.audio?.mime_type;
       break;
     case 'video':
       messageType = 'video';
-      content = message.video?.caption || '🎥 Video';
-      mediaUrl = message.video?.id ? await getMediaUrlSafe(message.video.id) : null;
+      content = message.video?.caption || 'Video';
+      mediaUrl = message.video?.id || null;
       mediaMime = message.video?.mime_type;
+      break;
+    case 'sticker':
+      messageType = 'sticker';
+      content = 'Sticker';
+      mediaUrl = message.sticker?.id || null;
+      mediaMime = message.sticker?.mime_type;
       break;
     case 'location':
       messageType = 'location';
-      content = `📍 ${message.location?.latitude}, ${message.location?.longitude}`;
+      content = JSON.stringify({ lat: message.location?.latitude, lng: message.location?.longitude, name: message.location?.name });
       break;
     case 'reaction':
       messageType = 'reaction';
