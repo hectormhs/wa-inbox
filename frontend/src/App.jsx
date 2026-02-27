@@ -107,11 +107,9 @@ export default function App() {
   // Actions
   const handleSendMessage = async (content) => {
     try {
-      const msg = await api.sendMessage(selectedConvId, content);
-      setMessages(prev => {
-        if (prev.some(m => m.id === msg.id)) return prev;
-        return [...prev, msg];
-      });
+      await api.sendMessage(selectedConvId, content);
+      const msgs = await api.getMessages(selectedConvId);
+      setMessages(msgs);
     } catch (err) {
       alert('Error enviando: ' + err.message);
     }
@@ -119,11 +117,9 @@ export default function App() {
 
   const handleSendNote = async (content) => {
     try {
-      const msg = await api.addNote(selectedConvId, content);
-      setMessages(prev => {
-        if (prev.some(m => m.id === msg.id)) return prev;
-        return [...prev, msg];
-      });
+      await api.addNote(selectedConvId, content);
+      const msgs = await api.getMessages(selectedConvId);
+      setMessages(msgs);
     } catch (err) {
       alert('Error: ' + err.message);
     }
